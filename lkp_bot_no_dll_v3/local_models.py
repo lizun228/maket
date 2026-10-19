@@ -14,12 +14,14 @@ def ollama_url(base: str, path: str) -> str:
 
 
 async def chat(base: str, model: str, messages: list[dict], *, legacy: bool = False,
-               num_ctx: int = 8192, num_predict: int = 650) -> str:
+               num_ctx: int = 8192, num_predict: int = 650, json_mode: bool = False) -> str:
     payload = {'model': model, 'messages': messages, 'stream': False, 'keep_alive': '10m',
                'options': {'num_ctx': num_ctx, 'num_predict': 850 if legacy else num_predict,
                            'seed': 42}}
     if not legacy:
-        payload['options']['temperature'] = .2
+        payload['options']['temperature'] = 0 if json_mode else .2
+    if json_mode:
+        payload['format'] = 'json'
     if not legacy and model.lower().startswith('qwen3'):
         payload['think'] = False
     async with httpx.AsyncClient(timeout=httpx.Timeout(300, connect=5), trust_env=False,

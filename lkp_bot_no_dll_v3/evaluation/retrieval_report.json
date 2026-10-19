@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-10-19T00:27:24.420084+00:00",
+  "created_utc": "2026-10-19T01:06:26.581735+00:00",
   "database_sha256": "a36cd5f59ffae9cbb2cfff2a2477996ddb4ea0a249b5c45548f5bbfe1e7116b8",
   "generation": "not_run",
   "notes": "Reference@5 — наличие хотя бы одного вручную выбранного полезного фрагмента. Это не экспертная оценка ответов и не полная разметка архива.",
@@ -124,13 +124,13 @@
       },
       "after": {
         "ids": [
-          1408,
           3309,
+          6442,
+          1408,
           5457,
-          5987,
-          6565
+          5926
         ],
-        "reference_found": true,
+        "reference_found": false,
         "correct_abstention": null
       }
     },
@@ -181,6 +181,32 @@
           5350,
           188,
           5005
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      }
+    },
+    {
+      "question": "состав который я наношу с кисточки долго сохнет",
+      "review_check": "Не переносить совет с аэрографа на кисть и не приписывать составу неподтверждённую химию. Возможные причины только из применимых реплик.",
+      "before": {
+        "ids": [
+          1181,
+          1092,
+          6174,
+          6407,
+          4959
+        ],
+        "reference_found": false,
+        "correct_abstention": null
+      },
+      "after": {
+        "ids": [
+          1181,
+          3669,
+          5851,
+          5256,
+          5983
         ],
         "reference_found": true,
         "correct_abstention": null

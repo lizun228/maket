@@ -21,6 +21,10 @@ CONCEPTS = {
     'отрыв': ('выдира', 'выдера', 'вырыв', 'выдерг', 'вырвал', 'вылет', 'выпад', 'отрыва', 'отвали'),
     'просадка': ('просад', 'усад', 'провал'),
     'сушка': ('суш', 'сохн', 'высох', 'высых', 'просох', 'досох'),
+    'кисть': ('кист',),
+    'аэрограф': ('аэрограф', 'аэро'),
+    'нанесение': ('нанос', 'нанош', 'нанес'),
+    'долго': ('долг', 'дольш', 'длитель', 'медлен'),
     'ик': ('ик', 'инфракрас', 'инфракр'),
     'шлифовка': ('шлиф', 'шкур', 'вышкур', 'наждач'),
     'полировка': ('полир', 'заполир', 'отполир'),
@@ -106,6 +110,8 @@ def _rank(row: dict, terms: list[str], weights: dict[str, float]) -> dict | None
     parts = message_parts(row['content'])
     bodies = [body for _, body in parts]
     present = _terms_in(' '.join(bodies), terms)
+    if {'долго', 'сушка'} <= set(terms) and not {'долго', 'сушка'} <= present:
+        return None
     coverage = sum(weights[t] for t in present) / sum(weights.values())
     # A lone generic word must not turn an unrelated question into an answer.
     required = 1 if len(terms) == 1 else 2
@@ -121,6 +127,11 @@ def _rank(row: dict, terms: list[str], weights: dict[str, float]) -> dict | None
     sentence_focus = max((sum(weights[t] for t in _terms_in(s, terms)) / sum(weights.values())
                           for s in re.split(r'(?<=[.!?])\s+|\n', body)), default=0)
     score = 5 * coverage + 2 * local + 1.5 * sentence_focus + .55 * explanatory
+    if {'долго', 'сушка'} <= set(terms):
+        symptom = bool(re.search(r'не\s+(?:со[хш]|выс[оы]х)|(?:долг\w*|дольш\w*|медлен\w*)[^.!?]{0,70}(?:сох|суш|высых)', normalized(body)))
+        score += .8 * symptom
+        if 'кисть' in terms and re.search(r'аэрограф|аэро\b|дюз|распыл', normalized(body)) and 'кисть' not in present:
+            score -= 3
     score += .35 * min(1, len(useful) / 700)
     score -= .4 * min(3, len(re.findall(r'https?://', body)))
     # BM25 is a tiebreaker: it must not overwhelm actual concept coverage.
@@ -139,7 +150,7 @@ def search_db(path: str | Path, question: str, limit: int = 5,
         counts = {t: conn.execute('SELECT COUNT(*) FROM passages_fts WHERE passages_fts MATCH ?',
                                  (_expression(t),)).fetchone()[0] for t in terms}
         total = conn.execute('SELECT COUNT(*) FROM passages').fetchone()[0]
-        weights = {t: min(4.5, 1 + math.log((total+1)/(counts[t]+1))) * (.55 if t in ('скол', 'царапина', 'лак') else 1) for t in terms}
+        weights = {t: min(4.5, 1 + math.log((total+1)/(counts[t]+1))) * (.4 if t == 'нанесение' else .65 if t in ('кисть', 'аэрограф') else .55 if t in ('скол', 'царапина', 'лак') else 1) for t in terms}
         candidates = {}
         expressions = [_expression(t) for t in terms]
         queries = [' OR '.join(expressions)]

@@ -9,6 +9,7 @@ import sys
 from dotenv import load_dotenv
 import httpx
 from local_models import ollama_url
+from grounded_answers import ANSWER_VERSION
 
 ROOT=Path(__file__).resolve().parent
 
@@ -18,6 +19,7 @@ def main():
     parser.add_argument('--skip-ollama',action='store_true')
     args=parser.parse_args()
     load_dotenv(ROOT/'.env')
+    print('Версия проверки ответов:',ANSWER_VERSION)
     failures=[]
     def check(label,good):
         print(('OK: ' if good else 'Нужно исправить: ')+label)

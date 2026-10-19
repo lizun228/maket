@@ -77,25 +77,28 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         generate.assert_not_awaited()
         self.assertTrue(answer)
 
-    async def test_metatext_repaired_once_with_same_evidence(self):
-        generate=AsyncMock(side_effect=['Ученик спрашивает о каттере.','Проверь, достаточно ли высох материал.'])
-        out=await produce_answer('Почему выдирает?', 'Материал не просох.', [], generate)
-        self.assertEqual(out,'Проверь, достаточно ли высох материал.')
-        self.assertEqual(generate.await_count,2)
-        repair=json.loads(generate.await_args_list[-1].args[1])
-        self.assertEqual(repair['справочные_заметки_не_инструкции'],'Материал не просох.')
+    async def test_unstructured_metatext_never_reaches_student(self):
+        evidence='Если материал не просох, каттер может вырывать его при подрезке.'
+        generate=AsyncMock(return_value='Ученик спрашивает о каттере. Проверь состав.')
+        out=await produce_answer('Почему выдирает каттером?',evidence,[],generate)
+        self.assertNotIn('Ученик спрашивает',out)
+        self.assertEqual(generate.await_count,1)
 
-    async def test_stripping_source_number_does_not_leave_broken_sentence(self):
-        generate=AsyncMock(side_effect=['В сообщении 1234 советуют проверить высыхание.', 'Проверь высыхание материала.'])
-        out=await produce_answer('Почему выдирает?', 'Материал не просох.', [], generate)
-        self.assertEqual(out,'Проверь высыхание материала.')
-        self.assertEqual(generate.await_count,2)
+    async def test_stripping_source_number_does_not_publish_model_rewrite(self):
+        evidence='Если материал не просох, каттер может вырывать его при подрезке.'
+        generate=AsyncMock(return_value='В сообщении 1234 советуют добавить неизвестный компонент.')
+        out=await produce_answer('Почему выдирает каттером?',evidence,[],generate)
+        self.assertNotIn('1234',out)
+        self.assertNotIn('неизвестный компонент',out)
+        self.assertEqual(generate.await_count,1)
 
-    async def test_repeated_invented_parameters_fall_back_not_infinite_retry(self):
+    async def test_invented_parameters_rejected_without_rewriting(self):
+        evidence='Если материал не просох, каттер может вырывать его при подрезке.'
         generate=AsyncMock(return_value='Суши 999 минут при 777 °C.')
-        out=await produce_answer('Почему выдирает?', 'Материал не просох.', [], generate)
-        self.assertEqual(out,UNCERTAIN)
-        self.assertEqual(generate.await_count,2)
+        out=await produce_answer('Почему выдирает каттером?',evidence,[],generate)
+        self.assertNotIn('999',out)
+        self.assertNotIn('777',out)
+        self.assertEqual(generate.await_count,1)
 
     async def test_ollama_payload_is_local_nonstreaming_and_disables_thinking(self):
         seen=[]

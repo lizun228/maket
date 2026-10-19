@@ -19,6 +19,7 @@ from search_engine import search_db, context_for
 from conversation import load_turns, search_question, remember
 from local_models import chat
 from qa_pipeline import produce_answer
+from grounded_answers import build_evidence, ANSWER_VERSION
 from response_quality import SYSTEM, clean_answer, NO_EVIDENCE, split_telegram, prompt_budget
 
 BASE = Path(__file__).resolve().parent
@@ -54,14 +55,14 @@ SEMANTIC = os.environ.get('SEMANTIC_SEARCH', 'false').lower() == 'true'
 async def generate_response(system: str, prompt: str) -> str:
     messages = [{'role': 'system', 'content': system}, {'role': 'user', 'content': prompt}]
     if PROVIDER == 'ollama':
-        return await chat(BASE_URL, MODEL, messages, num_ctx=NUM_CTX, num_predict=NUM_PREDICT)
+        return await chat(BASE_URL, MODEL, messages, num_ctx=NUM_CTX, num_predict=NUM_PREDICT, json_mode=True)
     if PROVIDER != 'proxyapi':
         raise ValueError('No AI available in offline mode')
     if not ALLOW_EXTERNAL:
         raise ValueError('Передача переписки внешнему ИИ выключена: ALLOW_EXTERNAL_AI=false')
     async with httpx.AsyncClient(timeout=httpx.Timeout(180, connect=10)) as client:
         response = await client.post(BASE_URL, json={
-            'model': MODEL, 'messages': messages, 'max_tokens': NUM_PREDICT, 'temperature': .2,
+            'model': MODEL, 'messages': messages, 'max_tokens': NUM_PREDICT, 'temperature': 0, 'response_format': {'type': 'json_object'},
         }, headers={'Authorization': f'Bearer {KEY}'})
         response.raise_for_status()
         choices = response.json().get('choices', [])
@@ -187,6 +188,7 @@ async def new_topic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     async with lock:
         context.user_data.pop('turns', None)
         context.user_data.pop('turns_at', None)
+        context.user_data.pop('grounding', None)
     await update.message.reply_text('Начнём новую тему. Напиши свой вопрос.')
 
 
@@ -206,6 +208,23 @@ async def my_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     yes, info = allowed(update.effective_user.id)
     await update.message.reply_text(('✅ ' if yes else '🔒 ') + info)
+
+
+async def evidence_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if getattr(update.effective_chat,'type',None)!='private':
+        return
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text('Команда доступна только администратору.')
+        return
+    trace=context.user_data.get('grounding',{})
+    rows=trace.get('selected',[])
+    if not rows:
+        await update.message.reply_text('Для последнего ответа нет выбранных подтверждений. Статус: '+trace.get('status','не было проверки'))
+        return
+    text='Основания последнего ответа (только для администратора):\n\n'
+    text+='\n\n'.join(f'Сообщение {row["message_id"]}, фрагмент {row["passage_id"]}:\n{row["text"]}' for row in rows)
+    for part in split_telegram(text):
+        await update.message.reply_text(part)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -265,6 +284,7 @@ async def answer_locked(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('Раздели, пожалуйста, вопрос на несколько сообщений до 2000 знаков.')
         return
     turns = load_turns(context.user_data)
+    context.user_data.pop('grounding',None)
     lookup = search_question(question, turns)
     try:
         hits = await retrieve(lookup)
@@ -272,11 +292,14 @@ async def answer_locked(update: Update, context: ContextTypes.DEFAULT_TYPE):
         LOG.warning('Не удалось прочитать базу знаний')
         await update.message.reply_text('Не удалось открыть базу знаний. Сообщи преподавателю, чтобы он проверил файлы бота.')
         return
-    model_turns, max_chars = prompt_budget(question, turns, NUM_CTX, NUM_PREDICT)
-    evidence = context_for(lookup, hits, max_chars=max_chars)
-    if not evidence:
-        await update.message.reply_text(NO_EVIDENCE)
-        remember(context.user_data, question, NO_EVIDENCE, turns)
+    _, max_chars = prompt_budget(question, turns, NUM_CTX, NUM_PREDICT)
+    evidence = build_evidence(lookup,hits,max_chars=max_chars) if PROVIDER!='offline' else context_for(lookup,hits,max_chars=max_chars)
+    if not evidence or (PROVIDER!='offline' and not evidence.units):
+        from grounded_answers import correction_response
+        output = correction_response(question,turns,evidence) if PROVIDER!='offline' else None
+        output = output or NO_EVIDENCE
+        await update.message.reply_text(output)
+        remember(context.user_data, question, output, turns)
         return
     quota_day = now_utc().date().isoformat()
     if not consume(uid):
@@ -289,7 +312,11 @@ async def answer_locked(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await asyncio.wait_for(MODEL_GATE.acquire(), timeout=120)
             try:
-                output = await produce_answer(question, evidence, model_turns, generate_response)
+                trace={}
+                output = await produce_answer(question, evidence, turns, generate_response, audit=trace)
+                context.user_data['grounding']=trace
+                if trace.get('status')!='source_sentences':
+                    refund(uid,quota_day)
             finally:
                 MODEL_GATE.release()
         except asyncio.CancelledError:
@@ -339,10 +366,12 @@ def main():
     app.add_handler(CommandHandler('status',status))
     app.add_handler(CommandHandler('help',help_command))
     app.add_handler(CommandHandler(['new', 'reset'],new_topic))
+    app.add_handler(CommandHandler('evidence',evidence_command,filters=filters.ChatType.PRIVATE))
     for cmd in ['grant','revoke','stats']:
         app.add_handler(CommandHandler(cmd,admin_command))
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,answer))
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & ~filters.COMMAND,other_media))
+    LOG.info('Проверка ответов: %s', ANSWER_VERSION)
     LOG.info('Бот запущен: режим %s; модель %s', PROVIDER, MODEL if PROVIDER != 'offline' else 'не нужна')
     async def on_error(update, context):
         LOG.warning('Ошибка обработки Telegram (%s)', type(context.error).__name__)

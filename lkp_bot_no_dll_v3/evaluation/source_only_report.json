@@ -1,0 +1,15 @@
+{
+  "version": "source-only-v2",
+  "checks": {
+    "selected_source_count": 1,
+    "source_message_id": "37187",
+    "unstructured_wrong_answer_blocked": true,
+    "prior_unsupported_term_corrected": true,
+    "databases_unchanged": true
+  },
+  "test_count": 61,
+  "test_outcome": "passed",
+  "model_selection": "controlled test replies, not real Qwen",
+  "live_ollama_validation": "not_run: no local Ollama in the cloud environment",
+  "notes": "Only metadata is published. Actual source quotes remain in the local database. Literal origin is verified; truth and semantic applicability are not guaranteed."
+}

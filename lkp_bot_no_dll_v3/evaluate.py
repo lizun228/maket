@@ -17,6 +17,7 @@ from evaluation import baseline_search
 from evaluation.baseline_cleanup import clean_answer as baseline_clean
 from local_models import chat, ollama_url
 from qa_pipeline import produce_answer
+from grounded_answers import build_evidence
 from response_quality import SYSTEM, clean_answer, answer_issues, prompt_budget
 from search_engine import search_db, context_for
 
@@ -67,10 +68,12 @@ async def generate_comparison(database, rows, model, candidate, base):
                 answer=baseline_clean(raw)
             else:
                 _, max_chars=prompt_budget(q,[])
-                evidence=context_for(q,search_db(database,q,5),max_chars=max_chars)
+                evidence=build_evidence(q,search_db(database,q,6),max_chars=max_chars)
                 async def generate(system,prompt):
-                    return await chat(base,current_model,[{'role':'system','content':system},{'role':'user','content':prompt}])
-                answer=await produce_answer(q,evidence,[],generate)
+                    return await chat(base,current_model,[{'role':'system','content':system},{'role':'user','content':prompt}],json_mode=True)
+                audit={}
+                answer=await produce_answer(q,evidence,[],generate,audit=audit)
+                row[name]['grounding']=audit
             row[name].update(answer=answer,words=len(answer.split()),elapsed_seconds=round(time.monotonic()-tick,2),model=current_model)
     return rows
 
