@@ -16,10 +16,11 @@ from telegram.constants import ChatAction
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
 from search_engine import search_db, context_for
-from conversation import load_turns, search_question, remember
+from conversation import load_turns, build_case, remember
 from local_models import chat
 from qa_pipeline import produce_answer
 from grounded_answers import build_evidence, ANSWER_VERSION
+from answer_composer import clarification_answer
 from response_quality import SYSTEM, clean_answer, NO_EVIDENCE, split_telegram, prompt_budget
 
 BASE = Path(__file__).resolve().parent
@@ -48,7 +49,7 @@ LOG = logging.getLogger('lkp_bot')
 MODEL_GATE = asyncio.Semaphore(1)  # one generation at a time on an 8 GB GPU
 ALLOW_EXTERNAL = os.environ.get('ALLOW_EXTERNAL_AI', 'false').lower() == 'true'
 NUM_CTX = int(os.environ.get('OLLAMA_NUM_CTX', '8192'))
-NUM_PREDICT = int(os.environ.get('OLLAMA_NUM_PREDICT', '650'))
+NUM_PREDICT = max(1000,int(os.environ.get('OLLAMA_NUM_PREDICT', '1200')))
 SEMANTIC = os.environ.get('SEMANTIC_SEARCH', 'false').lower() == 'true'
 
 
@@ -72,9 +73,9 @@ async def generate_response(system: str, prompt: str) -> str:
     return text.strip()
 
 
-async def retrieve(question: str) -> list[dict]:
+async def retrieve(question: str, focus_query: str = '') -> list[dict]:
     if not SEMANTIC:
-        return await asyncio.to_thread(search_db, KNOWLEDGE, question, 6)
+        return await asyncio.to_thread(search_db, KNOWLEDGE, question, 6, focus_query=focus_query)
     try:
         from semantic_search import nearest
         neighbours = await asyncio.to_thread(
@@ -84,9 +85,9 @@ async def retrieve(question: str) -> list[dict]:
     except Exception as exc:
         # Do not log request bodies, archive fragments, URLs or credentials.
         LOG.warning('Смысловой индекс недоступен (%s); используется текстовый поиск', type(exc).__name__)
-        return await asyncio.to_thread(search_db, KNOWLEDGE, question, 6)
+        return await asyncio.to_thread(search_db, KNOWLEDGE, question, 6, focus_query=focus_query)
     candidates = await asyncio.to_thread(search_db, KNOWLEDGE, question, 15,
-                                        [ident for ident, _ in neighbours])
+                                        [ident for ident, _ in neighbours], focus_query=focus_query)
     scores = dict(neighbours)
     candidates.sort(key=lambda row: -(row['relevance'] + .6 * max(0, scores.get(row['id'], 0))))
     return candidates[:6]
@@ -189,6 +190,7 @@ async def new_topic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop('turns', None)
         context.user_data.pop('turns_at', None)
         context.user_data.pop('grounding', None)
+        context.user_data.pop('case', None)
     await update.message.reply_text('Начнём новую тему. Напиши свой вопрос.')
 
 
@@ -222,6 +224,12 @@ async def evidence_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('Для последнего ответа нет выбранных подтверждений. Статус: '+trace.get('status','не было проверки'))
         return
     text='Основания последнего ответа (только для администратора):\n\n'
+    units={row.get('unit_id'):row for row in rows}
+    for claim in trace.get('claims',[]):
+        if claim['kind']=='observation':
+            continue
+        ids=', '.join(units[i]['message_id'] for i in claim['source_ids'] if i in units)
+        text+=f'Фраза ответа: {claim["text"]}\nПодтверждения: {ids}\n\n'
     text+='\n\n'.join(f'Сообщение {row["message_id"]}, фрагмент {row["passage_id"]}:\n{row["text"]}' for row in rows)
     for part in split_telegram(text):
         await update.message.reply_text(part)
@@ -284,10 +292,11 @@ async def answer_locked(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('Раздели, пожалуйста, вопрос на несколько сообщений до 2000 знаков.')
         return
     turns = load_turns(context.user_data)
-    context.user_data.pop('grounding',None)
-    lookup = search_question(question, turns)
+    previous_audit = context.user_data.pop('grounding',None)
+    case = build_case(question,turns,context.user_data.get('case'))
+    lookup = case['search_query']
     try:
-        hits = await retrieve(lookup)
+        hits = await retrieve(lookup,focus_query=case['focus_query'])
     except (sqlite3.Error, OSError):
         LOG.warning('Не удалось прочитать базу знаний')
         await update.message.reply_text('Не удалось открыть базу знаний. Сообщи преподавателю, чтобы он проверил файлы бота.')
@@ -297,8 +306,9 @@ async def answer_locked(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not evidence or (PROVIDER!='offline' and not evidence.units):
         from grounded_answers import correction_response
         output = correction_response(question,turns,evidence) if PROVIDER!='offline' else None
-        output = output or NO_EVIDENCE
+        output = output or clarification_answer(case)
         await update.message.reply_text(output)
+        context.user_data['case'] = case
         remember(context.user_data, question, output, turns)
         return
     quota_day = now_utc().date().isoformat()
@@ -313,9 +323,10 @@ async def answer_locked(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.wait_for(MODEL_GATE.acquire(), timeout=120)
             try:
                 trace={}
-                output = await produce_answer(question, evidence, turns, generate_response, audit=trace)
+                output = await produce_answer(question, evidence, turns, generate_response, audit=trace,
+                                              case=case,previous_audit=previous_audit)
                 context.user_data['grounding']=trace
-                if trace.get('status')!='source_sentences':
+                if trace.get('status')!='grounded_synthesis':
                     refund(uid,quota_day)
             finally:
                 MODEL_GATE.release()
@@ -335,6 +346,7 @@ async def answer_locked(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(part)
     # Raw excerpts are not assistant answers and should not pollute dialogue.
     if PROVIDER != 'offline':
+        context.user_data['case'] = case
         remember(context.user_data, question, output, turns)
 
 

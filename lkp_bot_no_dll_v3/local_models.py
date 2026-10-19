@@ -14,7 +14,7 @@ def ollama_url(base: str, path: str) -> str:
 
 
 async def chat(base: str, model: str, messages: list[dict], *, legacy: bool = False,
-               num_ctx: int = 8192, num_predict: int = 650, json_mode: bool = False) -> str:
+               num_ctx: int = 8192, num_predict: int = 1200, json_mode: bool = False) -> str:
     payload = {'model': model, 'messages': messages, 'stream': False, 'keep_alive': '10m',
                'options': {'num_ctx': num_ctx, 'num_predict': 850 if legacy else num_predict,
                            'seed': 42}}

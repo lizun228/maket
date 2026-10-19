@@ -1,0 +1,106 @@
+{
+  "version": "dialogue-synthesis-v3",
+  "code_tests": {
+    "passed": 75,
+    "model_responses": "mocked"
+  },
+  "live_generation": {
+    "status": "blocked",
+    "reason": "No local Ollama service or model; official download restricted by cloud networking"
+  },
+  "retrieval_and_state": {
+    "status": "passed",
+    "dialogues": [
+      {
+        "name": "Пример владельца: сушка",
+        "turns": [
+          {
+            "question": "состав который я наношу кисточкой долго сохнет",
+            "passage_ids": [
+              1181,
+              3669,
+              5851,
+              5256,
+              5983,
+              2910
+            ],
+            "checks": {
+              "has_evidence": true,
+              "keeps_topic": true
+            }
+          },
+          {
+            "question": "сушу лампой ик по 2 минуты",
+            "passage_ids": [
+              5983,
+              1265,
+              5256,
+              2910,
+              4014,
+              1141
+            ],
+            "checks": {
+              "has_evidence": true,
+              "keeps_topic": true
+            }
+          },
+          {
+            "question": "сделал 4 цикла, материал всё ещё мягкий",
+            "passage_ids": [
+              5256,
+              2910,
+              5984,
+              4014,
+              1265,
+              3506
+            ],
+            "checks": {
+              "has_evidence": true,
+              "keeps_topic": true
+            }
+          }
+        ]
+      },
+      {
+        "name": "Подрезка: проверка уточнения",
+        "turns": [
+          {
+            "question": "Почему материал выдирается при подрезании каттером?",
+            "passage_ids": [
+              5983,
+              6244,
+              6407,
+              5072,
+              3872,
+              6331
+            ],
+            "checks": {
+              "has_evidence": true,
+              "keeps_topic": true
+            }
+          },
+          {
+            "question": "после сушки материал остаётся мягким",
+            "passage_ids": [
+              6415,
+              6408,
+              5639,
+              4915,
+              6414,
+              6407
+            ],
+            "checks": {
+              "has_evidence": true,
+              "keeps_topic": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "data_preserved": [
+    "knowledge.sqlite",
+    "access.sqlite"
+  ],
+  "notes": "No real model answer quality score is claimed. Archive excerpts and generated private answers are excluded."
+}

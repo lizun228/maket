@@ -4,9 +4,9 @@ import json
 import re
 from conversation import relevant_history
 
-# Production uses a selection task, never a free-form technical answer prompt.
-from grounded_answers import SELECT_SYSTEM
-SYSTEM = SELECT_SYSTEM
+# Shared prompt budgeting; production runs composition and semantic review.
+from answer_prompts import COMPOSE_SYSTEM
+SYSTEM = COMPOSE_SYSTEM
 
 UNCERTAIN = 'Не могу уверенно назвать причину по этим данным. Какой материал используешь и на каком этапе возникает проблема?'
 NO_EVIDENCE = 'Пока не могу дать надёжный технический ответ. Какой материал используешь и на каком этапе возникает проблема?'
@@ -26,14 +26,14 @@ def make_prompt(question: str, evidence: str, turns: list[tuple[str, str]] = ())
                        'задача': 'Дай прямой полезный ответ. При нехватке сведений не выдумывай.'}, ensure_ascii=False)
 
 
-def prompt_budget(question: str, turns: list, num_ctx: int = 8192, num_predict: int = 650):
+def prompt_budget(question: str, turns: list, num_ctx: int = 8192, num_predict: int = 1200):
     """Conservative UTF-8 estimate; shrink history before crowding out evidence.
 
     Ollama model tokenizers differ, so this is a budget estimate, not a token count.
     Keep space for generation and the bounded repair prompt as well.
     """
     history = relevant_history(question, turns)
-    reserve = num_predict + 1000
+    reserve = num_predict + 1700
     def estimate(items):
         return (len((SYSTEM + make_prompt(question, '', items)).encode('utf-8')) + 2) // 3
     if estimate(history) + reserve + 900 > num_ctx:
@@ -62,14 +62,14 @@ def clean_answer(text: str) -> str:
     return re.sub(r'\n{3,}', '\n\n', text).strip()
 
 
-QUANTITY = re.compile(r'(?i)(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?)\s*(°\s*[сc]|градус\w*|минут\w*|мин\b|час\w*|ч\b|секунд\w*|сек\b|мм\b|мкм\b|бар\w*|%|об/мин)')
+QUANTITY = re.compile(r'(?i)(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?)\s*(°\s*[сc]|градус\w*|минут\w*|мин\b|час\w*|ч\b|секунд\w*|сек\b|мм\b|мкм\b|бар\w*|%|об/мин|цикл\w*|подход\w*|раз(?:а)?\b)')
 
 
 def quantities(text: str) -> set[tuple[str, str]]:
     result = set()
     for number, unit in QUANTITY.findall(text):
         unit = unit.lower().replace(' ', '')
-        for prefix, canonical in [('мин', 'min'), ('час', 'h'), ('ч', 'h'), ('сек', 's'), ('°', 'C'), ('градус', 'C'), ('бар', 'bar')]:
+        for prefix, canonical in [('мин', 'min'), ('час', 'h'), ('ч', 'h'), ('сек', 's'), ('°', 'C'), ('градус', 'C'), ('бар', 'bar'), ('цикл','cycle'), ('подход','cycle'), ('раз','count')]:
             if unit.startswith(prefix):
                 unit = canonical
                 break

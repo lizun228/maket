@@ -82,7 +82,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         generate=AsyncMock(return_value='Ученик спрашивает о каттере. Проверь состав.')
         out=await produce_answer('Почему выдирает каттером?',evidence,[],generate)
         self.assertNotIn('Ученик спрашивает',out)
-        self.assertEqual(generate.await_count,1)
+        self.assertEqual(generate.await_count,2)
 
     async def test_stripping_source_number_does_not_publish_model_rewrite(self):
         evidence='Если материал не просох, каттер может вырывать его при подрезке.'
@@ -90,7 +90,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         out=await produce_answer('Почему выдирает каттером?',evidence,[],generate)
         self.assertNotIn('1234',out)
         self.assertNotIn('неизвестный компонент',out)
-        self.assertEqual(generate.await_count,1)
+        self.assertEqual(generate.await_count,2)
 
     async def test_invented_parameters_rejected_without_rewriting(self):
         evidence='Если материал не просох, каттер может вырывать его при подрезке.'
@@ -98,7 +98,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         out=await produce_answer('Почему выдирает каттером?',evidence,[],generate)
         self.assertNotIn('999',out)
         self.assertNotIn('777',out)
-        self.assertEqual(generate.await_count,1)
+        self.assertEqual(generate.await_count,2)
 
     async def test_ollama_payload_is_local_nonstreaming_and_disables_thinking(self):
         seen=[]

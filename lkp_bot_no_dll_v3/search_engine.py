@@ -106,7 +106,7 @@ def _terms_in(text: str, terms: list[str]) -> set[str]:
     return {t for t in terms if _present(t, words)}
 
 
-def _rank(row: dict, terms: list[str], weights: dict[str, float]) -> dict | None:
+def _rank(row: dict, terms: list[str], weights: dict[str, float], focus: list[str] = ()) -> dict | None:
     parts = message_parts(row['content'])
     bodies = [body for _, body in parts]
     present = _terms_in(' '.join(bodies), terms)
@@ -127,6 +127,13 @@ def _rank(row: dict, terms: list[str], weights: dict[str, float]) -> dict | None
     sentence_focus = max((sum(weights[t] for t in _terms_in(s, terms)) / sum(weights.values())
                           for s in re.split(r'(?<=[.!?])\s+|\n', body)), default=0)
     score = 5 * coverage + 2 * local + 1.5 * sentence_focus + .55 * explanatory
+    # Clarifications rerank relevant discussions; they never bypass the original
+    # symptom/coverage checks. A common word in a new reply cannot reset the case.
+    focused = _terms_in(body, focus)
+    if focus:
+        score += 2.8 * len(focused) / len(focus)
+        if 'ик' in focus:
+            score += 1.6 * ('ик' in focused)
     if {'долго', 'сушка'} <= set(terms):
         symptom = bool(re.search(r'не\s+(?:со[хш]|выс[оы]х)|(?:долг\w*|дольш\w*|медлен\w*)[^.!?]{0,70}(?:сох|суш|высых)', normalized(body)))
         score += .8 * symptom
@@ -140,8 +147,9 @@ def _rank(row: dict, terms: list[str], weights: dict[str, float]) -> dict | None
 
 
 def search_db(path: str | Path, question: str, limit: int = 5,
-              extra_ids: list[int] | None = None) -> list[dict]:
+              extra_ids: list[int] | None = None, focus_query: str = '') -> list[dict]:
     terms = query_terms(question)
+    focus = query_terms(focus_query)[:5]
     if not terms or limit <= 0:
         return []
     conn = sqlite3.connect(Path(path).resolve().as_uri() + '?mode=ro', uri=True)
@@ -157,6 +165,8 @@ def search_db(path: str | Path, question: str, limit: int = 5,
         # Focused queries prevent common terms from consuming the entire recall pool.
         rare = sorted(terms, key=lambda t: counts[t])[:6]
         queries += [f'{_expression(a)} AND {_expression(b)}' for a, b in combinations(rare, 2)]
+        queries += [f'{_expression(a)} AND {_expression(b)}'
+                    for a in focus for b in rare[:3] if a != b]
         for i, query in enumerate(queries):
             rows = conn.execute('''SELECT p.*, bm25(passages_fts) AS raw_score
                 FROM passages_fts JOIN passages p ON p.id=passages_fts.rowid
@@ -171,7 +181,7 @@ def search_db(path: str | Path, question: str, limit: int = 5,
                     candidates[ident] = dict(row)
     finally:
         conn.close()
-    ranked = [item for row in candidates.values() if (item := _rank(row, terms, weights))]
+    ranked = [item for row in candidates.values() if (item := _rank(row, terms, weights, focus))]
     ranked.sort(key=lambda r: (-r['relevance'], r['id']))
     selected, seen_threads = [], Counter()
     while ranked and len(selected) < limit:
