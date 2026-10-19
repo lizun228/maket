@@ -1,0 +1,12 @@
+FIX FOR PYDANTIC DLL ERROR (Windows)
+
+The bot now calls Ollama directly via HTTP. No OpenAI SDK import, so no pydantic_core DLL import.
+
+1. Extract this ZIP to a NEW directory.
+2. Run setup_windows.bat. Enter the ROTATED BotFather token and NUMERIC Telegram ID.
+3. AI_PROVIDER=ollama ; AI_MODEL=qwen3:4b-instruct
+4. Save .env and run start_windows.bat.
+5. Send /start to the Telegram bot.
+
+Do NOT send anyone your bot token or .env file.
+The previous token posted in the chat should be revoked in BotFather.

@@ -1,0 +1,14 @@
+БОТ ПО РЕСТАВРАЦИИ ЛКП — ВЕРСИЯ ДЛЯ РФ
+
+1. Установи Python 3.11+ для Windows
+2. Запусти setup_windows.bat
+3. В .env впиши TELEGRAM_BOT_TOKEN и ADMIN_TELEGRAM_IDS
+4. Выбери AI_PROVIDER:
+   offline — БЕСПЛАТНО, выдаёт выдержки из переписки, без ИИ.
+   proxyapi — ИИ, оплата рублями; потребуется ключ ProxyAPI.
+   ollama — бесплатная модель на своём ПК, нужна установка Ollama.
+5. Запусти start_windows.bat
+6. Открой Telegram-бота и напиши /start
+
+Подробности, команды и меры безопасности — в README_RU.md
+Никому не присылай токен бота или ключ API.
