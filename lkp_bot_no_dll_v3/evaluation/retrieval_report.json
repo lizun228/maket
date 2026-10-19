@@ -1,0 +1,224 @@
+{
+  "created_utc": "2026-10-19T00:27:24.420084+00:00",
+  "database_sha256": "a36cd5f59ffae9cbb2cfff2a2477996ddb4ea0a249b5c45548f5bbfe1e7116b8",
+  "generation": "not_run",
+  "notes": "Reference@5 — наличие хотя бы одного вручную выбранного полезного фрагмента. Это не экспертная оценка ответов и не полная разметка архива.",
+  "cases": [
+    {
+      "question": "Почему материал выдирается при подрезании каттером?",
+      "review_check": "Есть объяснения про высыхание и технику срезания, а не только жалоба на дефект.",
+      "before": {
+        "ids": [
+          6307,
+          5857,
+          1119,
+          841,
+          5989
+        ],
+        "reference_found": false,
+        "correct_abstention": null
+      },
+      "after": {
+        "ids": [
+          5983,
+          6244,
+          6407,
+          5072,
+          3872
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      }
+    },
+    {
+      "question": "Почему возникает просадка после ИК-сушки?",
+      "review_check": "Не объявлять режим сушки универсальным; отделить просадку при сушке от съёма при полировке.",
+      "before": {
+        "ids": [
+          3609,
+          2374,
+          3608,
+          2944,
+          4831
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      },
+      "after": {
+        "ids": [
+          4754,
+          6572,
+          1139,
+          1141,
+          2125
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      }
+    },
+    {
+      "question": "Почему после полировки видна граница лака?",
+      "review_check": "Различать следы обработки и повреждение оставшегося лака. Не советовать бесконечно шлифовать.",
+      "before": {
+        "ids": [
+          1485,
+          1484,
+          6495,
+          503,
+          502
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      },
+      "after": {
+        "ids": [
+          1485,
+          3152,
+          965,
+          2390,
+          6495
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      }
+    },
+    {
+      "question": "Как подобрать цвет серебристого металлика?",
+      "review_check": "Объяснить ограничения эффектных частиц при локальном нанесении, не обещать идеальное совпадение.",
+      "before": {
+        "ids": [
+          6148,
+          3748,
+          2480,
+          638,
+          1655
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      },
+      "after": {
+        "ids": [
+          6423,
+          6309,
+          6147,
+          6202,
+          6180
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      }
+    },
+    {
+      "question": "Чем обезжиривать скол перед нанесением материала?",
+      "review_check": "Не делать один очиститель обязательным для любого состава. В заметках встречаются противоречия.",
+      "before": {
+        "ids": [
+          3310,
+          3309,
+          5987,
+          5457,
+          710
+        ],
+        "reference_found": false,
+        "correct_abstention": null
+      },
+      "after": {
+        "ids": [
+          1408,
+          3309,
+          5457,
+          5987,
+          6565
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      }
+    },
+    {
+      "question": "Почему материал в сколе остаётся мягким после сушки?",
+      "review_check": "Учитывать объём заполнения и растворитель, не назначать точное время неизвестному материалу.",
+      "before": {
+        "ids": [
+          6414,
+          6415,
+          3608,
+          6572,
+          5256
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      },
+      "after": {
+        "ids": [
+          6415,
+          1119,
+          4146,
+          5597,
+          4013
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      }
+    },
+    {
+      "question": "Можно ли шлифовать скол по мокрому?",
+      "review_check": "Различать абразивы для сухого и мокрого применения; не путать со способом нанесения мокрым по мокрому.",
+      "before": {
+        "ids": [
+          1803,
+          6181,
+          1813,
+          1814,
+          2771
+        ],
+        "reference_found": false,
+        "correct_abstention": null
+      },
+      "after": {
+        "ids": [
+          4473,
+          1403,
+          5350,
+          188,
+          5005
+        ],
+        "reference_found": true,
+        "correct_abstention": null
+      }
+    },
+    {
+      "question": "Какое давление в шинах зимой?",
+      "review_check": "Не подменять давление в шинах давлением аэрографа.",
+      "before": {
+        "ids": [
+          2463,
+          5099,
+          5106,
+          5098,
+          5693
+        ],
+        "reference_found": null,
+        "correct_abstention": false
+      },
+      "after": {
+        "ids": [],
+        "reference_found": null,
+        "correct_abstention": true
+      }
+    },
+    {
+      "question": "Квантовая запутанность в космологии",
+      "review_check": "Не генерировать технические факты вне базы знаний.",
+      "before": {
+        "ids": [],
+        "reference_found": null,
+        "correct_abstention": true
+      },
+      "after": {
+        "ids": [],
+        "reference_found": null,
+        "correct_abstention": true
+      }
+    }
+  ]
+}

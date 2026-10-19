@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+.venv*/
+__pycache__/
+*.py[cod]
+*.sqlite-wal
+*.sqlite-shm
+embeddings.sqlite*
+*.partial
+*.bak
+backups/
+evaluation/results*/
